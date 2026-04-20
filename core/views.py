@@ -7,16 +7,17 @@ OrgRequiredMixin — the security backbone.
   Every protected view must inherit this.
   It enforces:
     1. User is authenticated
-    2. User belongs to an organization
+    2. User belongs to an organization (super admins are exempt)
     3. Sets self.org for convenient use in child views
 
-Dashboard — Role-aware landing page.
+DashboardView — Role-aware landing page.
   Renders different stats/widgets per role.
 """
 from django.shortcuts import render, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.contrib import messages
+from django.urls import reverse
 from django.db.models import Count, Q
 
 from core.models import Organization, ClassRoom, Subject
@@ -28,7 +29,7 @@ class OrgRequiredMixin(LoginRequiredMixin):
 
     Guarantees:
     - User is logged in (redirects to login if not)
-    - User has an organization (no orphan users)
+    - User has an organization (no orphan users — super_admin exempt)
     - self.org is set for all child views
 
     Usage:
@@ -42,10 +43,15 @@ class OrgRequiredMixin(LoginRequiredMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
 
+        # Super admins have no org — they manage the platform itself
+        if request.user.is_super_admin:
+            self.org = None
+            return super().dispatch(request, *args, **kwargs)
+
         if not request.user.organization:
             messages.error(
                 request, 'Your account is not linked to any organization.')
-            return redirect('accounts:login')
+            return redirect(reverse('accounts:login'))
 
         self.org = request.user.organization
         return super().dispatch(request, *args, **kwargs)
@@ -71,7 +77,7 @@ class RoleRequiredMixin(OrgRequiredMixin):
         if self.allowed_roles and request.user.role not in self.allowed_roles:
             messages.error(
                 request, 'You do not have permission to access this page.')
-            return redirect('core:dashboard')
+            return redirect(reverse('core:dashboard'))
 
         return result
 
@@ -84,13 +90,24 @@ class DashboardView(OrgRequiredMixin, View):
     """
     Role-aware dashboard.
     Each role sees relevant stats and quick actions.
+
+    Roles:
+      super_admin  → platform overview: all orgs, org creation CTA
+      org_admin    → school overview: staff counts, exam review queue
+      teacher      → own exams, class list
+      student      → published results in their class
+      parent       → children's results
     """
 
     def get(self, request):
         user = request.user
         context = {'page_title': 'Dashboard'}
 
-        if user.is_org_admin:
+        if user.is_super_admin:
+            context.update(self._super_admin_context(request))
+            return render(request, 'dashboard/super_admin_dashboard.html', context)
+
+        elif user.is_org_admin:
             context.update(self._admin_context(request))
             return render(request, 'dashboard/admin_dashboard.html', context)
 
@@ -106,8 +123,23 @@ class DashboardView(OrgRequiredMixin, View):
             context.update(self._parent_context(request))
             return render(request, 'dashboard/parent_dashboard.html', context)
 
-        # Fallback
-        return render(request, 'dashboard/admin_dashboard.html', context)
+        # Fallback — should never hit this for a properly assigned user
+        messages.warning(
+            request, 'Your account role is not configured. Contact support.')
+        return redirect(reverse('accounts:login'))
+
+    def _super_admin_context(self, request):
+        """Platform-level stats for the super admin."""
+        orgs = Organization.objects.all().order_by('-created_at')
+        return {
+            'page_title': 'Platform Overview',
+            'stats': {
+                'total_orgs':   orgs.count(),
+                'active_orgs':  orgs.filter(is_active=True).count(),
+                'inactive_orgs': orgs.filter(is_active=False).count(),
+            },
+            'recent_orgs': orgs[:10],
+        }
 
     def _admin_context(self, request):
         from exams.models import Exam

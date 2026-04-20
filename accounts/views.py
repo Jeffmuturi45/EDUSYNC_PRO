@@ -4,17 +4,18 @@ apps/accounts/views.py
 Authentication & User Management views for EduSync Pro.
 
 Flow:
-  1. SuperAdmin creates org → auto-generates school admin credentials
-  2. School admin logs in → forced to change password
-  3. School admin adds teachers → auto-generated credentials shown once
-  4. School admin adds students → auto-generated credentials shown once
-  5. School admin adds parents → auto-generated credentials shown once
+  1. SuperAdmin logs in → sees platform dashboard, creates orgs
+  2. SuperAdmin creates org → auto-generates school admin credentials (shown ONCE)
+  3. School admin logs in → forced to change password
+  4. School admin adds teachers/students/parents → credentials shown once
+  5. All other users log in → redirected to their role dashboard
 
 Security rules:
   - ALL user management scoped to request.user.organization
   - Only org_admin can create/manage users within their org
-  - super_admin can create organizations
+  - super_admin can create organizations (no org of their own)
   - Credentials are shown ONCE, never stored in plaintext
+  - /accounts/register/ is CLOSED — no public self-registration
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -22,6 +23,7 @@ from django.contrib import messages
 from django.views import View
 from django.utils.text import slugify
 from django.db import transaction
+from django.urls import reverse
 
 from core.models import Organization, AcademicYear, ClassRoom
 from accounts.models import User, StudentProfile, TeacherProfile, ParentProfile
@@ -32,13 +34,26 @@ from core.views import OrgRequiredMixin, RoleRequiredMixin
 # ─────────────────────────────────────────────────────────────
 # AUTH: Login / Logout / Force Password Change
 # ─────────────────────────────────────────────────────────────
+
 class RegisterView(View):
-    template_name = 'accounts/register.html'
+    """
+    FIX: Registration is admin-only. This view exists only to catch
+    anyone navigating to /accounts/register/ and redirect them cleanly.
+    The link on the login page has been removed.
+    """
 
     def get(self, request):
+        if request.user.is_authenticated:
+            return redirect(reverse('core:dashboard'))
         messages.info(
-            request, 'Registration is currently closed. Contact your administrator.')
-        return render(request, self.template_name)
+            request,
+            'School registration is not open. '
+            'Contact your system administrator to set up your school.'
+        )
+        return redirect(reverse('accounts:login'))
+
+    def post(self, request):
+        return self.get(request)
 
 
 class LoginView(View):
@@ -47,8 +62,8 @@ class LoginView(View):
     def get(self, request):
         if request.user.is_authenticated:
             if request.user.must_change_password:
-                return redirect('accounts:force_change_password')
-            return redirect('core:dashboard')
+                return redirect(reverse('accounts:force_change_password'))
+            return redirect(reverse('core:dashboard'))
         return render(request, self.template_name)
 
     def post(self, request):
@@ -68,24 +83,30 @@ class LoginView(View):
 
         if not user.is_active:
             messages.error(
-                request, 'This account has been deactivated. Contact your administrator.')
+                request,
+                'This account has been deactivated. Contact your administrator.')
             return render(request, self.template_name)
 
         login(request, user)
 
         # Intercept: force password change for auto-generated accounts
         if user.must_change_password:
-            return redirect('accounts:force_change_password')
+            return redirect(reverse('accounts:force_change_password'))
 
         messages.success(
             request, f'Welcome back, {user.get_full_name() or user.username}!')
-        return redirect(request.GET.get('next', 'core:dashboard'))
+
+        # FIX: use reverse() for named URL redirect; ?next= param also supported
+        next_url = request.GET.get('next', '')
+        if next_url and next_url.startswith('/'):
+            return redirect(next_url)
+        return redirect(reverse('core:dashboard'))
 
 
 class LogoutView(View):
     def get(self, request):
         logout(request)
-        return redirect('accounts:login')
+        return redirect(reverse('accounts:login'))
 
     def post(self, request):
         return self.get(request)
@@ -100,9 +121,9 @@ class ForceChangePasswordView(View):
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('accounts:login')
+            return redirect(reverse('accounts:login'))
         if not request.user.must_change_password:
-            return redirect('core:dashboard')
+            return redirect(reverse('core:dashboard'))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request):
@@ -134,7 +155,7 @@ class ForceChangePasswordView(View):
         update_session_auth_hash(request, user)
         messages.success(
             request, 'Password changed successfully. Welcome to EduSync Pro!')
-        return redirect('core:dashboard')
+        return redirect(reverse('core:dashboard'))
 
 
 # ─────────────────────────────────────────────────────────────
@@ -144,17 +165,19 @@ class ForceChangePasswordView(View):
 class CreateOrganizationView(View):
     """
     SuperAdmin creates a new school organization.
-    System auto-generates the school admin credentials shown once.
+    System auto-generates the school admin credentials — shown ONCE.
+
+    Access: super_admin or Django staff (is_staff) only.
     """
     template_name = 'accounts/create_organization.html'
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('accounts:login')
+            return redirect(reverse('accounts:login'))
         if not (request.user.is_super_admin or request.user.is_staff):
             messages.error(
                 request, 'Only Super Admins can create organizations.')
-            return redirect('core:dashboard')
+            return redirect(reverse('core:dashboard'))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request):
@@ -184,9 +207,10 @@ class CreateOrganizationView(View):
         if errors:
             for e in errors:
                 messages.error(request, e)
-            return render(request, self.template_name, {'form_data': request.POST, 'orgs': orgs})
+            return render(request, self.template_name,
+                          {'form_data': request.POST, 'orgs': orgs})
 
-        # Create org
+        # Create org with unique slug
         base_slug = slugify(org_name)
         slug, counter = base_slug, 2
         while Organization.objects.filter(slug=slug).exists():
@@ -194,21 +218,24 @@ class CreateOrganizationView(View):
             counter += 1
 
         org = Organization.objects.create(
-            name=org_name, slug=slug, email=org_email, phone=org_phone,
+            name=org_name, slug=slug,
+            email=org_email, phone=org_phone,
         )
 
         # Default academic year
         from django.utils import timezone
         year = timezone.now().year
         AcademicYear.objects.create(
-            organization=org, name=f"{year}/{year+1}",
-            start_date=f"{year}-01-01", end_date=f"{year+1}-12-31", is_current=True,
+            organization=org,
+            name=f"{year}/{year + 1}",
+            start_date=f"{year}-01-01",
+            end_date=f"{year + 1}-12-31",
+            is_current=True,
         )
 
         # Auto-generate admin credentials
         admin_username = generate_org_admin_username(slug)
-        counter2 = 2
-        base_uname = admin_username
+        base_uname, counter2 = admin_username, 2
         while User.objects.filter(username=admin_username).exists():
             admin_username = f"{base_uname}{counter2}"
             counter2 += 1
@@ -217,9 +244,14 @@ class CreateOrganizationView(View):
         admin_password = generate_password()
 
         admin_user = User.objects.create_user(
-            username=admin_username, password=admin_password,
-            first_name=admin_first, last_name=admin_last, email=admin_email,
-            organization=org, role=User.Role.ORG_ADMIN, must_change_password=True,
+            username=admin_username,
+            password=admin_password,
+            first_name=admin_first,
+            last_name=admin_last,
+            email=admin_email,
+            organization=org,
+            role=User.Role.ORG_ADMIN,
+            must_change_password=True,
         )
 
         return render(request, self.template_name, {
@@ -227,10 +259,10 @@ class CreateOrganizationView(View):
             'org': org,
             'orgs': Organization.objects.all().order_by('-created_at'),
             'credentials': {
-                'username': admin_username,
-                'password': admin_password,
+                'username':   admin_username,
+                'password':   admin_password,
                 'admin_name': admin_user.get_full_name(),
-                'login_url': request.build_absolute_uri('/accounts/login/'),
+                'login_url':  request.build_absolute_uri(reverse('accounts:login')),
             }
         })
 
@@ -305,11 +337,11 @@ class AddTeacherView(RoleRequiredMixin, View):
             'success': True,
             'page_title': 'Add Teacher',
             'credentials': {
-                'name': user.get_full_name(),
-                'username': user.username,
-                'password': password,
-                'role': 'Teacher',
-                'login_url': request.build_absolute_uri('/accounts/login/'),
+                'name':      user.get_full_name(),
+                'username':  user.username,
+                'password':  password,
+                'role':      'Teacher',
+                'login_url': request.build_absolute_uri(reverse('accounts:login')),
             }
         })
 
@@ -356,7 +388,9 @@ class AddStudentView(RoleRequiredMixin, View):
             for e in errors:
                 messages.error(request, e)
             return render(request, self.template_name, {
-                'classrooms': classrooms, 'form_data': request.POST, 'page_title': 'Add Student'
+                'classrooms': classrooms,
+                'form_data': request.POST,
+                'page_title': 'Add Student',
             })
 
         user, password = create_user_with_credentials(
@@ -377,12 +411,12 @@ class AddStudentView(RoleRequiredMixin, View):
             'classrooms': classrooms,
             'page_title': 'Add Student',
             'credentials': {
-                'name': user.get_full_name(),
-                'username': user.username,
-                'password': password,
-                'role': 'Student',
+                'name':      user.get_full_name(),
+                'username':  user.username,
+                'password':  password,
+                'role':      'Student',
                 'classroom': classroom.name if classroom else '',
-                'login_url': request.build_absolute_uri('/accounts/login/'),
+                'login_url': request.build_absolute_uri(reverse('accounts:login')),
             }
         })
 
@@ -418,7 +452,9 @@ class AddParentView(RoleRequiredMixin, View):
             for e in errors:
                 messages.error(request, e)
             return render(request, self.template_name, {
-                'students': students, 'form_data': request.POST, 'page_title': 'Add Parent'
+                'students': students,
+                'form_data': request.POST,
+                'page_title': 'Add Parent',
             })
 
         user, password = create_user_with_credentials(
@@ -432,7 +468,7 @@ class AddParentView(RoleRequiredMixin, View):
 
         if children_ids:
             children = StudentProfile.objects.filter(
-                id__in=children_ids, organization=self.org  # tenant check
+                id__in=children_ids, organization=self.org   # tenant check
             )
             parent_profile.children.set(children)
 
@@ -443,12 +479,12 @@ class AddParentView(RoleRequiredMixin, View):
             'students': students,
             'page_title': 'Add Parent',
             'credentials': {
-                'name': user.get_full_name(),
-                'username': user.username,
-                'password': password,
-                'role': 'Parent',
-                'children': [c.user.get_full_name() for c in linked],
-                'login_url': request.build_absolute_uri('/accounts/login/'),
+                'name':      user.get_full_name(),
+                'username':  user.username,
+                'password':  password,
+                'role':      'Parent',
+                'children':  [c.user.get_full_name() for c in linked],
+                'login_url': request.build_absolute_uri(reverse('accounts:login')),
             }
         })
 
@@ -460,14 +496,15 @@ class ToggleUserActiveView(RoleRequiredMixin, View):
         target = get_object_or_404(User, id=user_id, organization=self.org)
         if target == request.user:
             messages.error(request, 'You cannot deactivate your own account.')
-            return redirect('accounts:user_list')
+            return redirect(reverse('accounts:user_list'))
         target.is_active = not target.is_active
         target.save()
         messages.success(
             request,
-            f'{target.get_full_name()} has been {"activated" if target.is_active else "deactivated"}.'
+            f'{target.get_full_name()} has been '
+            f'{"activated" if target.is_active else "deactivated"}.'
         )
-        return redirect('accounts:user_list')
+        return redirect(reverse('accounts:user_list'))
 
 
 class ResetUserPasswordView(RoleRequiredMixin, View):

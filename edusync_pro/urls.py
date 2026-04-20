@@ -7,10 +7,10 @@ from django.shortcuts import redirect
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls', namespace='accounts')),
-    # path('dashboard/', include('dashboard.urls', namespace='core')),
+    path('', include('core.urls', namespace='core')),
     path('exams/', include('exams.urls', namespace='exams')),
     # path('api/exams/', include('exams.api.urls', namespace='exams_api')),
-    path('', lambda r: redirect('dashboard/')),
+    # path('', lambda r: redirect('dashboard/')),
 ]
 
 if settings.DEBUG:

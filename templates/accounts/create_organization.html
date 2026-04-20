@@ -1,0 +1,267 @@
+{% extends "base/base.html" %}
+
+{% block title %}Create Organisation — EduSync Pro{% endblock %}
+{% block page_title %}Create Organisation{% endblock %}
+
+{% block content %}
+<div x-data="{}">
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="font-heading font-bold text-brand-dark text-lg">School Organisations</h2>
+      <p class="text-brand-gray text-sm mt-0.5">
+        Create a new school. Credentials are generated automatically and shown once.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── SUCCESS: Credentials Reveal ─────────────────────── -->
+  {% if success %}
+  <div class="bg-green-50 border-2 border-brand-green rounded-2xl p-6 mb-6"
+       x-data="{ copied: false }">
+
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 bg-brand-green rounded-xl flex items-center justify-center flex-shrink-0">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <h3 class="font-heading font-bold text-brand-green text-base">
+          {{ org.name }} created successfully!
+        </h3>
+        <p class="text-green-700 text-sm mt-1">
+          Share these credentials with the school admin.
+          <strong>This is the only time the password will be visible.</strong>
+        </p>
+      </div>
+    </div>
+
+    <!-- Credentials Box -->
+    <div class="mt-4 bg-white rounded-xl border border-green-200 divide-y divide-green-100">
+
+      <div class="flex items-center justify-between px-4 py-3">
+        <div>
+          <p class="text-xs text-brand-gray font-medium uppercase tracking-wide">Admin Name</p>
+          <p class="text-brand-dark font-semibold text-sm mt-0.5">{{ credentials.admin_name }}</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between px-4 py-3">
+        <div>
+          <p class="text-xs text-brand-gray font-medium uppercase tracking-wide">Username</p>
+          <p class="text-brand-dark font-mono font-semibold text-sm mt-0.5">{{ credentials.username }}</p>
+        </div>
+        <button
+          type="button"
+          @click="navigator.clipboard.writeText('{{ credentials.username }}'); copied = 'username'"
+          class="text-xs text-brand-green hover:text-brand-greenMid font-semibold transition-colors">
+          <span x-show="copied !== 'username'">Copy</span>
+          <span x-show="copied === 'username'" class="text-green-600">✓ Copied</span>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between px-4 py-3">
+        <div>
+          <p class="text-xs text-brand-gray font-medium uppercase tracking-wide">Temporary Password</p>
+          <p class="text-brand-dark font-mono font-bold text-sm mt-0.5 tracking-widest">
+            {{ credentials.password }}
+          </p>
+        </div>
+        <button
+          type="button"
+          @click="navigator.clipboard.writeText('{{ credentials.password }}'); copied = 'password'"
+          class="text-xs text-brand-green hover:text-brand-greenMid font-semibold transition-colors">
+          <span x-show="copied !== 'password'">Copy</span>
+          <span x-show="copied === 'password'" class="text-green-600">✓ Copied</span>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between px-4 py-3">
+        <div>
+          <p class="text-xs text-brand-gray font-medium uppercase tracking-wide">Login URL</p>
+          <p class="text-brand-dark text-sm mt-0.5">
+            <a href="{{ credentials.login_url }}" class="text-brand-green hover:underline font-medium">
+              {{ credentials.login_url }}
+            </a>
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="text-xs text-green-700 mt-3 font-medium">
+      ⚠ The admin will be forced to set a new password on first login.
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- ── CREATE FORM ──────────────────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+      <h3 class="font-heading font-semibold text-brand-dark text-sm mb-5">
+        Register New School
+      </h3>
+
+      <form method="POST" action="{% url 'accounts:create_organization' %}" class="space-y-4">
+        {% csrf_token %}
+
+        <!-- School Info -->
+        <div class="pb-4 border-b border-gray-100">
+          <p class="text-xs font-semibold text-brand-gray uppercase tracking-wide mb-3">
+            School Details
+          </p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-brand-dark mb-1" for="org_name">
+                School Name <span class="text-red-500">*</span>
+              </label>
+              <input id="org_name" name="org_name" type="text" required
+                     placeholder="e.g. Greenfield Academy"
+                     value="{{ form_data.org_name|default:'' }}"
+                     class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                            focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                            placeholder-gray-400 transition-all"/>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-brand-dark mb-1" for="org_email">
+                  School Email
+                </label>
+                <input id="org_email" name="org_email" type="email"
+                       placeholder="info@school.ac.ke"
+                       value="{{ form_data.org_email|default:'' }}"
+                       class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                              placeholder-gray-400 transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-brand-dark mb-1" for="org_phone">
+                  Phone
+                </label>
+                <input id="org_phone" name="org_phone" type="tel"
+                       placeholder="+254 700 000000"
+                       value="{{ form_data.org_phone|default:'' }}"
+                       class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                              placeholder-gray-400 transition-all"/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Info -->
+        <div>
+          <p class="text-xs font-semibold text-brand-gray uppercase tracking-wide mb-3">
+            School Admin Details
+          </p>
+
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-brand-dark mb-1" for="admin_first_name">
+                  First Name <span class="text-red-500">*</span>
+                </label>
+                <input id="admin_first_name" name="admin_first_name" type="text" required
+                       placeholder="John"
+                       value="{{ form_data.admin_first_name|default:'' }}"
+                       class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                              placeholder-gray-400 transition-all"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-brand-dark mb-1" for="admin_last_name">
+                  Last Name <span class="text-red-500">*</span>
+                </label>
+                <input id="admin_last_name" name="admin_last_name" type="text" required
+                       placeholder="Mwangi"
+                       value="{{ form_data.admin_last_name|default:'' }}"
+                       class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                              placeholder-gray-400 transition-all"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-brand-dark mb-1" for="admin_email">
+                Admin Email
+              </label>
+              <input id="admin_email" name="admin_email" type="email"
+                     placeholder="admin@school.ac.ke"
+                     value="{{ form_data.admin_email|default:'' }}"
+                     class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm
+                            focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent
+                            placeholder-gray-400 transition-all"/>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-brand-green hover:bg-brand-greenMid text-white font-semibold
+                       py-3 px-6 rounded-xl transition-all duration-200 text-sm active:scale-[0.98]">
+          Create School &amp; Generate Credentials
+        </button>
+      </form>
+    </div>
+
+    <!-- ── EXISTING ORGS LIST ──────────────────────────── -->
+    <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-heading font-semibold text-brand-dark text-sm">
+          Registered Schools
+        </h3>
+        <span class="text-xs bg-brand-greenLight text-brand-green font-bold px-2 py-1 rounded-full">
+          {{ orgs|length }}
+        </span>
+      </div>
+
+      {% if orgs %}
+      <div class="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+        {% for org in orgs %}
+        <div class="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-brand-lightGray transition-colors">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 bg-brand-greenLight rounded-lg flex items-center justify-center flex-shrink-0">
+              <span class="font-heading font-bold text-brand-green text-sm">
+                {{ org.name|first|upper }}
+              </span>
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-brand-dark truncate">{{ org.name }}</p>
+              <p class="text-xs text-brand-gray truncate">{{ org.slug }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+            {% if org.is_active %}
+            <span class="text-xs bg-brand-greenLight text-brand-green font-semibold px-2 py-0.5 rounded-full">
+              Active
+            </span>
+            {% else %}
+            <span class="text-xs bg-red-50 text-red-500 font-semibold px-2 py-0.5 rounded-full">
+              Inactive
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-12">
+        <div class="w-12 h-12 bg-brand-greenLight rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        </div>
+        <p class="text-sm text-brand-gray font-medium">No schools yet</p>
+        <p class="text-xs text-gray-400 mt-1">Create your first school using the form</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

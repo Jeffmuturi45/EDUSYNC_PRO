@@ -1,0 +1,163 @@
+{% extends "base/base.html" %}
+
+{% block title %}Platform Overview — EduSync Pro{% endblock %}
+{% block page_title %}Platform Overview{% endblock %}
+
+{% block content %}
+<div x-data="{}">
+
+  <!-- Welcome Banner -->
+  <div class="bg-gradient-to-r from-brand-dark to-gray-800 rounded-2xl p-6 mb-6 text-white relative overflow-hidden">
+    <div class="absolute right-0 top-0 w-48 h-48 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+    <div class="absolute right-16 bottom-0 w-24 h-24 bg-brand-yellow opacity-10 rounded-full translate-y-1/2"></div>
+    <div class="relative">
+      <p class="text-gray-400 text-sm font-medium">Signed in as Super Admin</p>
+      <h2 class="font-heading font-bold text-2xl mt-0.5">{{ user.get_full_name }}</h2>
+      <p class="text-gray-400 text-sm mt-1">EduSync Pro · Platform Administrator</p>
+    </div>
+    <div class="mt-4">
+      <a href="{% url 'accounts:create_organization' %}"
+         class="inline-flex items-center gap-2 bg-brand-yellow text-brand-dark text-xs font-bold
+                px-4 py-2 rounded-lg hover:bg-brand-yellowDark transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Register New School
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+    <div class="bg-white rounded-2xl p-5 shadow-card border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-brand-gray text-xs font-medium uppercase tracking-wide">Total Schools</p>
+          <p class="font-heading font-bold text-3xl text-brand-dark mt-1">{{ stats.total_orgs }}</p>
+        </div>
+        <div class="w-10 h-10 bg-brand-greenLight rounded-xl flex items-center justify-center">
+          <svg class="w-5 h-5 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 shadow-card border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-brand-gray text-xs font-medium uppercase tracking-wide">Active</p>
+          <p class="font-heading font-bold text-3xl text-brand-green mt-1">{{ stats.active_orgs }}</p>
+        </div>
+        <div class="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+          <svg class="w-5 h-5 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 shadow-card border border-gray-100">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-brand-gray text-xs font-medium uppercase tracking-wide">Inactive</p>
+          <p class="font-heading font-bold text-3xl mt-1
+            {% if stats.inactive_orgs > 0 %}text-red-500{% else %}text-brand-dark{% endif %}">
+            {{ stats.inactive_orgs }}
+          </p>
+        </div>
+        <div class="w-10 h-10 {% if stats.inactive_orgs > 0 %}bg-red-50{% else %}bg-gray-100{% endif %} rounded-xl flex items-center justify-center">
+          <svg class="w-5 h-5 {% if stats.inactive_orgs > 0 %}text-red-400{% else %}text-gray-400{% endif %}"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Registered Schools Table -->
+  <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-heading font-semibold text-brand-dark text-sm">Registered Schools</h3>
+      <a href="{% url 'accounts:create_organization' %}"
+         class="inline-flex items-center gap-1.5 text-xs bg-brand-green text-white font-semibold
+                px-3 py-1.5 rounded-lg hover:bg-brand-greenMid transition-colors">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add School
+      </a>
+    </div>
+
+    {% if recent_orgs %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="text-left text-xs font-semibold text-brand-gray uppercase tracking-wide pb-3">School</th>
+            <th class="text-left text-xs font-semibold text-brand-gray uppercase tracking-wide pb-3">Slug</th>
+            <th class="text-left text-xs font-semibold text-brand-gray uppercase tracking-wide pb-3">Email</th>
+            <th class="text-left text-xs font-semibold text-brand-gray uppercase tracking-wide pb-3">Status</th>
+            <th class="text-left text-xs font-semibold text-brand-gray uppercase tracking-wide pb-3">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for org in recent_orgs %}
+          <tr class="hover:bg-brand-lightGray transition-colors">
+            <td class="py-3 pr-4">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 bg-brand-greenLight rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span class="font-bold text-brand-green text-xs">{{ org.name|first|upper }}</span>
+                </div>
+                <span class="font-semibold text-brand-dark">{{ org.name }}</span>
+              </div>
+            </td>
+            <td class="py-3 pr-4">
+              <span class="font-mono text-xs text-brand-gray bg-gray-100 px-2 py-1 rounded">{{ org.slug }}</span>
+            </td>
+            <td class="py-3 pr-4 text-brand-gray">{{ org.email|default:"—" }}</td>
+            <td class="py-3 pr-4">
+              {% if org.is_active %}
+              <span class="text-xs bg-brand-greenLight text-brand-green font-semibold px-2 py-0.5 rounded-full">
+                Active
+              </span>
+              {% else %}
+              <span class="text-xs bg-red-50 text-red-500 font-semibold px-2 py-0.5 rounded-full">
+                Inactive
+              </span>
+              {% endif %}
+            </td>
+            <td class="py-3 text-brand-gray text-xs">{{ org.created_at|date:"d M Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+      <div class="w-16 h-16 bg-brand-greenLight rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      </div>
+      <p class="font-heading font-semibold text-brand-dark">No schools registered yet</p>
+      <p class="text-brand-gray text-sm mt-1">Get started by registering your first school.</p>
+      <a href="{% url 'accounts:create_organization' %}"
+         class="inline-flex items-center gap-2 mt-4 bg-brand-green text-white text-sm font-semibold
+                px-5 py-2.5 rounded-xl hover:bg-brand-greenMid transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Register First School
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
