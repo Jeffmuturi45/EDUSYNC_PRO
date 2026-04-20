@@ -1,0 +1,7 @@
+from django.urls import path
+
+app_name = 'exams_api'
+
+urlpatterns = [
+
+]

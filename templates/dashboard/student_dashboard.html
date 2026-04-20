@@ -1,0 +1,63 @@
+{% extends "base/base.html" %}
+{% block title %}My Results — EduSync Pro{% endblock %}
+{% block page_title %}My Results{% endblock %}
+
+{% block content %}
+<div>
+
+  <!-- Profile Banner -->
+  <div class="bg-gradient-to-r from-brand-green to-brand-greenMid rounded-2xl p-6 mb-6 text-white">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center flex-shrink-0">
+        <span class="font-heading font-bold text-brand-dark text-xl">
+          {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+        </span>
+      </div>
+      <div>
+        <p class="text-green-200 text-sm">Student</p>
+        <h2 class="font-heading font-bold text-xl">{{ user.get_full_name }}</h2>
+        {% if classroom %}
+        <p class="text-green-200 text-sm mt-0.5">{{ classroom.name }} &nbsp;·&nbsp; {{ organization.name }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Published Results -->
+  <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="font-heading font-semibold text-brand-dark text-sm">Published Results</h3>
+      <a href="{% url 'exams:my_results' %}" class="text-xs text-brand-green font-semibold hover:underline">View all →</a>
+    </div>
+
+    {% if published_exams %}
+    <div class="divide-y divide-gray-50">
+      {% for exam in published_exams %}
+      <div class="flex items-center justify-between px-6 py-4 hover:bg-brand-lightGray transition-colors">
+        <div>
+          <p class="text-sm font-semibold text-brand-dark">{{ exam.name }}</p>
+          <p class="text-xs text-brand-gray mt-0.5">{{ exam.get_term_display }} &nbsp;·&nbsp; {{ exam.academic_year }}</p>
+        </div>
+        <a href="{% url 'exams:my_results' %}"
+           class="text-xs bg-brand-green text-white px-3 py-1.5 rounded-lg font-semibold
+                  hover:bg-brand-greenMid transition-colors">
+          View Results
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+      <div class="w-14 h-14 bg-brand-greenLight rounded-2xl flex items-center justify-center mx-auto mb-3">
+        <svg class="w-7 h-7 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <p class="text-sm font-semibold text-brand-dark">No results yet</p>
+      <p class="text-xs text-brand-gray mt-1">Results will appear here once published by your teacher</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

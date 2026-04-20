@@ -1,0 +1,51 @@
+{% extends "base/base.html" %}
+{% block title %}Parent Dashboard — EduSync Pro{% endblock %}
+{% block page_title %}My Children's Progress{% endblock %}
+
+{% block content %}
+<div>
+
+  <!-- Banner -->
+  <div class="bg-gradient-to-r from-brand-green to-brand-greenMid rounded-2xl p-6 mb-6 text-white">
+    <p class="text-green-200 text-sm">Welcome,</p>
+    <h2 class="font-heading font-bold text-2xl mt-0.5">{{ user.get_full_name }}</h2>
+    <p class="text-green-200 text-sm mt-1">
+      {{ stats.total_children }} child{% if stats.total_children != 1 %}ren{% endif %} linked &nbsp;·&nbsp; {{ organization.name }}
+    </p>
+  </div>
+
+  <!-- Children Cards -->
+  {% if children %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for child in children %}
+    <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-5">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-brand-yellow rounded-xl flex items-center justify-center">
+          <span class="font-bold text-brand-dark text-sm">
+            {{ child.user.first_name|first|upper }}{{ child.user.last_name|first|upper }}
+          </span>
+        </div>
+        <div>
+          <p class="font-semibold text-brand-dark text-sm">{{ child.user.get_full_name }}</p>
+          <p class="text-xs text-brand-gray">
+            {% if child.classroom %}{{ child.classroom.name }}{% else %}No class assigned{% endif %}
+          </p>
+        </div>
+      </div>
+      <a href="{% url 'exams:my_results' %}"
+         class="block w-full text-center bg-brand-greenLight text-brand-green text-xs font-semibold
+                py-2 rounded-xl hover:bg-green-200 transition-colors">
+        View Results
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow-card border border-gray-100 text-center py-12">
+    <p class="text-sm font-semibold text-brand-dark">No children linked</p>
+    <p class="text-xs text-brand-gray mt-1">Contact your school admin to link your children</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
